@@ -197,7 +197,11 @@ void  ToLaserscanMessagePublish(ldlidar::Points2D& src,  double lidar_spin_freq,
       }
 
       if (setting.enable_angle_crop_func) { // Angle crop setting, Mask data within the set angle range
-        if ((dir_angle >= setting.angle_crop_min) && (dir_angle <= setting.angle_crop_max)) {
+        // min > max means the masked range wraps through 0 deg (e.g. 310..50)
+        bool in_crop = (setting.angle_crop_min <= setting.angle_crop_max)
+          ? (dir_angle >= setting.angle_crop_min && dir_angle <= setting.angle_crop_max)
+          : (dir_angle >= setting.angle_crop_min || dir_angle <= setting.angle_crop_max);
+        if (in_crop) {
           range = std::numeric_limits<float>::quiet_NaN();
           intensity = std::numeric_limits<float>::quiet_NaN();
         }
