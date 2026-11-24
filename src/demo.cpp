@@ -19,6 +19,8 @@
  * limitations under the License.
  */
 
+#include <rclcpp_components/register_node_macro.hpp>
+
 #include "ros2_api.h"
 #include "ldlidar_driver.h"
 
@@ -27,15 +29,27 @@ void  ToLaserscanMessagePublish(ldlidar::Points2D& src, double lidar_spin_freq, 
 
 uint64_t GetSystemTimeStamp(void);
 
-int main(int argc, char **argv) {
-  rclcpp::init(argc, argv);
-  auto node = std::make_shared<rclcpp::Node>("ldlidar_published"); // create a ROS2 Node
+class LdlidarNode : public rclcpp::Node {
+ public:
+  explicit LdlidarNode(const rclcpp::NodeOptions & options);
+  ~LdlidarNode() override;
+
+ private:
+  void OnTimer();
+
+  LaserScanSetting setting;
+  ldlidar::LDLidarDriver* ldlidarnode = nullptr;
+  rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr publisher;
+  rclcpp::TimerBase::SharedPtr timer;
+};
+
+LdlidarNode::LdlidarNode(const rclcpp::NodeOptions & options) : rclcpp::Node("ldlidar_published", options) {
+  auto node = this;
   std::string product_name;
 	std::string topic_name;
 	std::string port_name;
   int serial_port_baudrate;
   ldlidar::LDType type_name;
-  LaserScanSetting setting;
 	setting.frame_id = "base_laser";
   setting.laser_scan_dir = true;
   setting.enable_angle_crop_func = false;
@@ -64,7 +78,7 @@ int main(int argc, char **argv) {
   node->get_parameter("angle_crop_min", setting.angle_crop_min);
   node->get_parameter("angle_crop_max", setting.angle_crop_max);
 
-  ldlidar::LDLidarDriver* ldlidarnode = new ldlidar::LDLidarDriver();
+  ldlidarnode = new ldlidar::LDLidarDriver();
 
   RCLCPP_INFO(node->get_logger(), "LDLiDAR SDK Pack Version is: %s", ldlidarnode->GetLidarSdkVersionNumber().c_str());
   RCLCPP_INFO(node->get_logger(), "<product_name>: %s", product_name.c_str());
@@ -85,7 +99,7 @@ int main(int argc, char **argv) {
     type_name = ldlidar::LDType::STL_27L;
   } else {
     RCLCPP_ERROR(node->get_logger(), "Error, input <product_name> is illegal.");
-    exit(EXIT_FAILURE);
+    throw std::runtime_error("Error, input <product_name> is illegal.");
   }
 
   ldlidarnode->RegisterGetTimestampFunctional(std::bind(&GetSystemTimeStamp)); 
@@ -96,53 +110,48 @@ int main(int argc, char **argv) {
     RCLCPP_INFO(node->get_logger(), "ldlidar node start is success");
   } else {
     RCLCPP_ERROR(node->get_logger(), "ldlidar node start is fail");
-    exit(EXIT_FAILURE);
+    throw std::runtime_error("ldlidar node start is fail");
   }
 
   if (ldlidarnode->WaitLidarCommConnect(3000)) {
     RCLCPP_INFO(node->get_logger(), "ldlidar communication is normal.");
   } else {
     RCLCPP_ERROR(node->get_logger(), "ldlidar communication is abnormal.");
-    exit(EXIT_FAILURE);
+    throw std::runtime_error("ldlidar communication is abnormal.");
   }
 
   // create ldlidar data topic and publisher
-  rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr publisher = 
-      node->create_publisher<sensor_msgs::msg::LaserScan>(topic_name, 10);
+  publisher = node->create_publisher<sensor_msgs::msg::LaserScan>(topic_name, 10);
   
-  rclcpp::WallRate r(10); //10hz
+  RCLCPP_INFO(node->get_logger(), "Publish topic message:ldlidar scan data.");
+  timer = node->create_wall_timer(std::chrono::milliseconds(100), [this] { OnTimer(); });  // 10hz
+}
 
+LdlidarNode::~LdlidarNode() {
+  ldlidarnode->Stop();
+  delete ldlidarnode;
+}
+
+void LdlidarNode::OnTimer() {
   ldlidar::Points2D laser_scan_points;
   double lidar_scan_freq;
-  RCLCPP_INFO(node->get_logger(), "Publish topic message:ldlidar scan data.");
-  while (rclcpp::ok()) {
-    switch (ldlidarnode->GetLaserScanData(laser_scan_points, 1500)){
-      case ldlidar::LidarStatus::NORMAL: 
-        ldlidarnode->GetLidarScanFreq(lidar_scan_freq);
-        ToLaserscanMessagePublish(laser_scan_points, lidar_scan_freq, setting, node, publisher);
-        break;
-      case ldlidar::LidarStatus::DATA_TIME_OUT:
-        RCLCPP_ERROR(node->get_logger(), "get ldlidar data is time out, please check your lidar device.");
-        break;
-      case ldlidar::LidarStatus::DATA_WAIT:
-        break;
-      default:
-        break;
-    }
-
-    r.sleep();
+  auto node = shared_from_this();
+  switch (ldlidarnode->GetLaserScanData(laser_scan_points, 1500)){
+    case ldlidar::LidarStatus::NORMAL:
+      ldlidarnode->GetLidarScanFreq(lidar_scan_freq);
+      ToLaserscanMessagePublish(laser_scan_points, lidar_scan_freq, setting, node, publisher);
+      break;
+    case ldlidar::LidarStatus::DATA_TIME_OUT:
+      RCLCPP_ERROR(node->get_logger(), "get ldlidar data is time out, please check your lidar device.");
+      break;
+    case ldlidar::LidarStatus::DATA_WAIT:
+      break;
+    default:
+      break;
   }
-
-  ldlidarnode->Stop();
-
-  delete ldlidarnode;
-  ldlidarnode = nullptr;
-
-  RCLCPP_INFO(node->get_logger(), "ldlidar_published is end");
-  rclcpp::shutdown();
-
-  return 0;
 }
+
+RCLCPP_COMPONENTS_REGISTER_NODE(LdlidarNode)
 
 void  ToLaserscanMessagePublish(ldlidar::Points2D& src,  double lidar_spin_freq, LaserScanSetting& setting,
   rclcpp::Node::SharedPtr& node, rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr& lidarpub) {
