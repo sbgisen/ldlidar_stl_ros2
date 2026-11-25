@@ -48,7 +48,7 @@ LdlidarNode::LdlidarNode(const rclcpp::NodeOptions & options) : rclcpp::Node("ld
   std::string product_name;
 	std::string topic_name;
 	std::string port_name;
-  int serial_port_baudrate;
+  int serial_port_baudrate = 0;
   ldlidar::LDType type_name;
 	setting_.frame_id = "base_laser";
   setting_.laser_scan_dir = true;
