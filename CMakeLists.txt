@@ -18,6 +18,7 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
 find_package(sensor_msgs REQUIRED)
 
 if(BUILD_TESTING)
@@ -49,7 +50,7 @@ file(GLOB  LDLIDAR_DRI_LOGGER ${CMAKE_CURRENT_SOURCE_DIR}/ldlidar_driver/src/log
 file(GLOB  LDLIDAR_DRI_NETWORK ${CMAKE_CURRENT_SOURCE_DIR}/ldlidar_driver/src/networkcom/*.cpp)
 file(GLOB  LDLIDAR_DRI_SERIAL ${CMAKE_CURRENT_SOURCE_DIR}/ldlidar_driver/src/serialcom/*.cpp)
 
-add_executable(${PROJECT_NAME}_node  
+add_library(${PROJECT_NAME}_component SHARED
   ${CMAKE_CURRENT_SOURCE_DIR}/src/demo.cpp 
   ${LDLIDAR_DRI_CORE} 
   ${LDLIDAR_DRI_DATARPC} 
@@ -58,12 +59,18 @@ add_executable(${PROJECT_NAME}_node
   ${LDLIDAR_DRI_NETWORK} 
   ${LDLIDAR_DRI_SERIAL}
 )
-ament_target_dependencies(${PROJECT_NAME}_node rclcpp sensor_msgs)
-target_link_libraries(${PROJECT_NAME}_node pthread)
+ament_target_dependencies(${PROJECT_NAME}_component rclcpp rclcpp_components sensor_msgs)
+target_link_libraries(${PROJECT_NAME}_component pthread)
+
+# Also generates the standalone ldlidar_stl_ros2_node executable
+rclcpp_components_register_node(${PROJECT_NAME}_component
+  PLUGIN "LdlidarNode"
+  EXECUTABLE ${PROJECT_NAME}_node
+)
 
 # Install
-install(TARGETS ${PROJECT_NAME}_node
-  DESTINATION lib/${PROJECT_NAME}
+install(TARGETS ${PROJECT_NAME}_component
+  DESTINATION lib
 )
 
 install(DIRECTORY launch rviz2
