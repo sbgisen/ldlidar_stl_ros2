@@ -37,10 +37,10 @@ class LdlidarNode : public rclcpp::Node {
  private:
   void OnTimer();
 
-  LaserScanSetting setting;
-  ldlidar::LDLidarDriver* ldlidarnode = nullptr;
-  rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr publisher;
-  rclcpp::TimerBase::SharedPtr timer;
+  LaserScanSetting setting_;
+  ldlidar::LDLidarDriver* ldlidarnode_ = nullptr;
+  rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr publisher_;
+  rclcpp::TimerBase::SharedPtr timer_;
 };
 
 LdlidarNode::LdlidarNode(const rclcpp::NodeOptions & options) : rclcpp::Node("ldlidar_published", options) {
@@ -50,46 +50,46 @@ LdlidarNode::LdlidarNode(const rclcpp::NodeOptions & options) : rclcpp::Node("ld
 	std::string port_name;
   int serial_port_baudrate;
   ldlidar::LDType type_name;
-	setting.frame_id = "base_laser";
-  setting.laser_scan_dir = true;
-  setting.enable_angle_crop_func = false;
-  setting.angle_crop_min = 0.0;
-  setting.angle_crop_max = 0.0;
+	setting_.frame_id = "base_laser";
+  setting_.laser_scan_dir = true;
+  setting_.enable_angle_crop_func = false;
+  setting_.angle_crop_min = 0.0;
+  setting_.angle_crop_max = 0.0;
   
   // declare ros2 param
   node->declare_parameter<std::string>("product_name", product_name);
   node->declare_parameter<std::string>("topic_name", topic_name);
-  node->declare_parameter<std::string>("frame_id", setting.frame_id);
+  node->declare_parameter<std::string>("frame_id", setting_.frame_id);
   node->declare_parameter<std::string>("port_name", port_name);
   node->declare_parameter<int>("port_baudrate", serial_port_baudrate);
-  node->declare_parameter<bool>("laser_scan_dir", setting.laser_scan_dir);
-  node->declare_parameter<bool>("enable_angle_crop_func", setting.enable_angle_crop_func);
-  node->declare_parameter<double>("angle_crop_min", setting.angle_crop_min);
-  node->declare_parameter<double>("angle_crop_max", setting.angle_crop_max);
+  node->declare_parameter<bool>("laser_scan_dir", setting_.laser_scan_dir);
+  node->declare_parameter<bool>("enable_angle_crop_func", setting_.enable_angle_crop_func);
+  node->declare_parameter<double>("angle_crop_min", setting_.angle_crop_min);
+  node->declare_parameter<double>("angle_crop_max", setting_.angle_crop_max);
 
   // get ros2 param
   node->get_parameter("product_name", product_name);
   node->get_parameter("topic_name", topic_name);
-  node->get_parameter("frame_id", setting.frame_id);
+  node->get_parameter("frame_id", setting_.frame_id);
   node->get_parameter("port_name", port_name);
   node->get_parameter("port_baudrate", serial_port_baudrate);
-  node->get_parameter("laser_scan_dir", setting.laser_scan_dir);
-  node->get_parameter("enable_angle_crop_func", setting.enable_angle_crop_func);
-  node->get_parameter("angle_crop_min", setting.angle_crop_min);
-  node->get_parameter("angle_crop_max", setting.angle_crop_max);
+  node->get_parameter("laser_scan_dir", setting_.laser_scan_dir);
+  node->get_parameter("enable_angle_crop_func", setting_.enable_angle_crop_func);
+  node->get_parameter("angle_crop_min", setting_.angle_crop_min);
+  node->get_parameter("angle_crop_max", setting_.angle_crop_max);
 
-  ldlidarnode = new ldlidar::LDLidarDriver();
+  ldlidarnode_ = new ldlidar::LDLidarDriver();
 
-  RCLCPP_INFO(node->get_logger(), "LDLiDAR SDK Pack Version is: %s", ldlidarnode->GetLidarSdkVersionNumber().c_str());
+  RCLCPP_INFO(node->get_logger(), "LDLiDAR SDK Pack Version is: %s", ldlidarnode_->GetLidarSdkVersionNumber().c_str());
   RCLCPP_INFO(node->get_logger(), "<product_name>: %s", product_name.c_str());
   RCLCPP_INFO(node->get_logger(), "<topic_name>: %s", topic_name.c_str());
-  RCLCPP_INFO(node->get_logger(), "<frame_id>: %s", setting.frame_id.c_str());
+  RCLCPP_INFO(node->get_logger(), "<frame_id>: %s", setting_.frame_id.c_str());
   RCLCPP_INFO(node->get_logger(), "<port_name>: %s", port_name.c_str());
   RCLCPP_INFO(node->get_logger(), "<port_baudrate>: %d", serial_port_baudrate);
-  RCLCPP_INFO(node->get_logger(), "<laser_scan_dir>: %s", (setting.laser_scan_dir?"Counterclockwise":"Clockwise"));
-  RCLCPP_INFO(node->get_logger(), "<enable_angle_crop_func>: %s", (setting.enable_angle_crop_func?"true":"false"));
-  RCLCPP_INFO(node->get_logger(), "<angle_crop_min>: %f", setting.angle_crop_min);
-  RCLCPP_INFO(node->get_logger(), "<angle_crop_max>: %f", setting.angle_crop_max);
+  RCLCPP_INFO(node->get_logger(), "<laser_scan_dir>: %s", (setting_.laser_scan_dir?"Counterclockwise":"Clockwise"));
+  RCLCPP_INFO(node->get_logger(), "<enable_angle_crop_func>: %s", (setting_.enable_angle_crop_func?"true":"false"));
+  RCLCPP_INFO(node->get_logger(), "<angle_crop_min>: %f", setting_.angle_crop_min);
+  RCLCPP_INFO(node->get_logger(), "<angle_crop_max>: %f", setting_.angle_crop_max);
 
   if (product_name == "LDLiDAR_LD06") {
     type_name = ldlidar::LDType::LD_06;
@@ -102,18 +102,18 @@ LdlidarNode::LdlidarNode(const rclcpp::NodeOptions & options) : rclcpp::Node("ld
     throw std::runtime_error("Error, input <product_name> is illegal.");
   }
 
-  ldlidarnode->RegisterGetTimestampFunctional(std::bind(&GetSystemTimeStamp)); 
+  ldlidarnode_->RegisterGetTimestampFunctional(std::bind(&GetSystemTimeStamp)); 
 
-  ldlidarnode->EnableFilterAlgorithnmProcess(true);
+  ldlidarnode_->EnableFilterAlgorithnmProcess(true);
 
-  if (ldlidarnode->Start(type_name, port_name, serial_port_baudrate, ldlidar::COMM_SERIAL_MODE)) {
+  if (ldlidarnode_->Start(type_name, port_name, serial_port_baudrate, ldlidar::COMM_SERIAL_MODE)) {
     RCLCPP_INFO(node->get_logger(), "ldlidar node start is success");
   } else {
     RCLCPP_ERROR(node->get_logger(), "ldlidar node start is fail");
     throw std::runtime_error("ldlidar node start is fail");
   }
 
-  if (ldlidarnode->WaitLidarCommConnect(3000)) {
+  if (ldlidarnode_->WaitLidarCommConnect(3000)) {
     RCLCPP_INFO(node->get_logger(), "ldlidar communication is normal.");
   } else {
     RCLCPP_ERROR(node->get_logger(), "ldlidar communication is abnormal.");
@@ -121,25 +121,25 @@ LdlidarNode::LdlidarNode(const rclcpp::NodeOptions & options) : rclcpp::Node("ld
   }
 
   // create ldlidar data topic and publisher
-  publisher = node->create_publisher<sensor_msgs::msg::LaserScan>(topic_name, 10);
+  publisher_ = node->create_publisher<sensor_msgs::msg::LaserScan>(topic_name, 10);
   
   RCLCPP_INFO(node->get_logger(), "Publish topic message:ldlidar scan data.");
-  timer = node->create_wall_timer(std::chrono::milliseconds(100), [this] { OnTimer(); });  // 10hz
+  timer_ = node->create_wall_timer(std::chrono::milliseconds(100), [this] { OnTimer(); });  // 10hz
 }
 
 LdlidarNode::~LdlidarNode() {
-  ldlidarnode->Stop();
-  delete ldlidarnode;
+  ldlidarnode_->Stop();
+  delete ldlidarnode_;
 }
 
 void LdlidarNode::OnTimer() {
   ldlidar::Points2D laser_scan_points;
   double lidar_scan_freq;
   auto node = shared_from_this();
-  switch (ldlidarnode->GetLaserScanData(laser_scan_points, 1500)){
+  switch (ldlidarnode_->GetLaserScanData(laser_scan_points, 1500)){
     case ldlidar::LidarStatus::NORMAL:
-      ldlidarnode->GetLidarScanFreq(lidar_scan_freq);
-      ToLaserscanMessagePublish(laser_scan_points, lidar_scan_freq, setting, node, publisher);
+      ldlidarnode_->GetLidarScanFreq(lidar_scan_freq);
+      ToLaserscanMessagePublish(laser_scan_points, lidar_scan_freq, setting_, node, publisher_);
       break;
     case ldlidar::LidarStatus::DATA_TIME_OUT:
       RCLCPP_ERROR(node->get_logger(), "get ldlidar data is time out, please check your lidar device.");
